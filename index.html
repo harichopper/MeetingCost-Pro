@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeetingCost Pro - Calculate & Optimize Your Meeting Expenses</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <!-- Toast Notifications Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Export Meeting Data</h3>
+                <button class="modal-close" onclick="exportManager.closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="export-options">
+                    <div class="form-group">
+                        <label class="form-label">Export Format</label>
+                        <div class="export-format-grid">
+                            <label class="export-format-option">
+                                <input type="radio" name="exportFormat" value="csv" checked>
+                                <div class="format-info">
+                                    <div class="format-icon">📊</div>
+                                    <h4>CSV</h4>
+                                    <p>Spreadsheet data</p>
+                                </div>
+                            </label>
+                            <label class="export-format-option">
+                                <input type="radio" name="exportFormat" value="excel">
+                                <div class="format-info">
+                                    <div class="format-icon">📈</div>
+                                    <h4>Excel</h4>
+                                    <p>Advanced workbook</p>
+                                </div>
+                            </label>
+                            <label class="export-format-option">
+                                <input type="radio" name="exportFormat" value="pdf">
+                                <div class="format-info">
+                                    <div class="format-icon">📄</div>
+                                    <h4>PDF</h4>
+                                    <p>Professional report</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Date Range</label>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">From</label>
+                                <input type="date" id="exportFromDate" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">To</label>
+                                <input type="date" id="exportToDate" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Export Options</label>
+                        <div class="export-checkboxes">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="includeCharts" checked>
+                                <span>Include Charts & Graphs</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="includeNotes" checked>
+                                <span>Include Meeting Notes</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="includeEfficiency" checked>
+                                <span>Include Efficiency Scores</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="includeSummary" checked>
+                                <span>Include Summary Statistics</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--outline" onclick="exportManager.closeModal()">Cancel</button>
+                <button class="btn btn--primary" onclick="exportManager.startExport()">
+                    <span class="btn-text">Export Data</span>
+                    <div class="spinner hidden"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-content">
+                <div class="nav-brand">
+                    <h2>MeetingCost Pro</h2>
+                </div>
+                <div class="nav-links" id="mainNavLinks">
+                    <button class="nav-link" data-view="home">Home</button>
+                    <button class="nav-link" data-view="calculator">Calculator</button>
+                    <button class="nav-link" data-view="dashboard">Dashboard</button>
+                    <button class="nav-link" data-view="analytics">Analytics</button>
+                    <button class="nav-link" data-view="pricing">Pricing</button>
+                    <button class="nav-link" data-view="settings">Settings</button>
+                </div>
+                <div class="nav-actions">
+                    <div class="user-info" id="userInfo" style="display: none;">
+                        <span class="usage-counter" id="usageCounter">3/5 meetings used</span>
+                        <div class="user-dropdown">
+                            <button class="user-btn" id="userBtn">
+                                <img id="userAvatar" src="" alt="User" class="user-avatar">
+                                <span id="userName">User</span>
+                            </button>
+                            <div class="dropdown-menu" id="userDropdown">
+                                <button class="dropdown-item" data-view="profile">Profile</button>
+                                <button class="dropdown-item" data-view="billing">Billing</button>
+                                <button class="dropdown-item" id="logoutBtn">Logout</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="auth-buttons" id="authButtons">
+                        <button class="btn btn--outline btn--sm" data-view="login">Login</button>
+                        <button class="btn btn--primary btn--sm" data-view="signup">Sign Up</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Home View -->
+    <div id="homeView" class="view active">
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>Stop Wasting Money on Expensive Meetings</h1>
+                    <p class="hero-subtitle">Calculate the true cost of your meetings and optimize your team's time and budget with data-driven insights across 20+ currencies.</p>
+                    <div class="hero-stats">
+                        <div class="stat">
+                            <h3>$37 Billion</h3>
+                            <p>Lost annually on unnecessary meetings</p>
+                        </div>
+                        <div class="stat">
+                            <h3>23 Hours</h3>
+                            <p>Average weekly meeting time per employee</p>
+                        </div>
+                        <div class="stat">
+                            <h3>67%</h3>
+                            <p>Of meetings are considered unproductive</p>
+                        </div>
+                    </div>
+                    <div class="hero-actions">
+                        <button class="btn btn--primary btn--lg" data-view="calculator">Try Free Calculator</button>
+                        <button class="btn btn--outline btn--lg" data-view="pricing">View Pricing</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="container">
+                <h2>Why Choose MeetingCost Pro?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">💰</div>
+                        <h3>Multi-Currency Support</h3>
+                        <p>Calculate costs in 20+ currencies with real-time exchange rates</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h3>Advanced Analytics</h3>
+                        <p>Track spending trends and identify optimization opportunities</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">👥</div>
+                        <h3>Team Collaboration</h3>
+                        <p>Share costs across teams and departments</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📈</div>
+                        <h3>Smart Insights</h3>
+                        <p>AI-powered recommendations to optimize meeting efficiency</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Login View -->
+    <div id="loginView" class="view">
+        <div class="auth-container">
+            <div class="auth-card">
+                <h2>Welcome Back</h2>
+                <p>Sign in to your MeetingCost Pro account</p>
+                
+                <div class="google-signin">
+                    <button class="btn btn--google btn--full-width" id="googleSignInBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Continue with Google
+                    </button>
+                </div>
+                
+                <div class="divider">or</div>
+                
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label" for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn--primary btn--full-width">Sign In</button>
+                    </div>
+                </form>
+                
+                <div class="auth-footer">
+                    <p>Don't have an account? <button class="link-btn" data-view="signup">Sign up</button></p>
+                    <button class="link-btn" data-view="forgot-password">Forgot password?</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signup View -->
+    <div id="signupView" class="view">
+        <div class="auth-container">
+            <div class="auth-card">
+                <h2>Create Account</h2>
+                <p>Start optimizing your meeting costs today</p>
+                
+                <div class="google-signin">
+                    <button class="btn btn--google btn--full-width" id="googleSignUpBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Sign up with Google
+                    </button>
+                </div>
+                
+                <div class="divider">or</div>
+                
+                <form id="signupForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="firstName">First Name</label>
+                            <input type="text" id="firstName" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="lastName">Last Name</label>
+                            <input type="text" id="lastName" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="signupEmail">Email</label>
+                        <input type="email" id="signupEmail" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="signupPassword">Password</label>
+                        <input type="password" id="signupPassword" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="company">Company (Optional)</label>
+                        <input type="text" id="company" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn--primary btn--full-width">Create Account</button>
+                    </div>
+                </form>
+                
+                <div class="auth-footer">
+                    <p>Already have an account? <button class="link-btn" data-view="login">Sign in</button></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calculator View -->
+    <div id="calculatorView" class="view">
+        <div class="container">
+            <div class="calculator-section">
+                <h1>Meeting Cost Calculator</h1>
+                <p>Calculate the true cost of your meetings in any currency</p>
+                
+                <div class="calculator-layout">
+                    <div class="calculator-form">
+                        <form id="meetingForm">
+                            <div class="form-group">
+                                <label class="form-label" for="meetingTitle">Meeting Title</label>
+                                <input type="text" id="meetingTitle" class="form-control" placeholder="e.g., Weekly Team Standup">
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="hours">Hours</label>
+                                    <input type="number" id="hours" class="form-control" min="0" max="8" value="1">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="minutes">Minutes</label>
+                                    <input type="number" id="minutes" class="form-control" min="0" max="59" value="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="participants">Number of Participants</label>
+                                <input type="number" id="participants" class="form-control" min="1" value="5">
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="hourlyRate">Average Hourly Rate</label>
+                                    <input type="number" id="hourlyRate" class="form-control" min="0" step="0.01" value="50">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="currency">Currency</label>
+                                    <select id="currency" class="form-control">
+                                        <option value="USD">USD ($)</option>
+                                        <option value="EUR">EUR (€)</option>
+                                        <option value="GBP">GBP (£)</option>
+                                        <option value="JPY">JPY (¥)</option>
+                                        <option value="CAD">CAD (C$)</option>
+                                        <option value="AUD">AUD (A$)</option>
+                                        <option value="SGD">SGD (S$)</option>
+                                        <option value="INR">INR (₹)</option>
+                                        <option value="CHF">CHF</option>
+                                        <option value="CNY">CNY (¥)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="meetingTemplate">Quick Templates</label>
+                                <select id="meetingTemplate" class="form-control">
+                                    <option value="">Select a template...</option>
+                                    <option value="daily-standup">Daily Standup (15m, 6 people)</option>
+                                    <option value="weekly-review">Weekly Review (60m, 8 people)</option>
+                                    <option value="client-presentation">Client Presentation (90m, 10 people)</option>
+                                    <option value="planning-session">Planning Session (120m, 5 people)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="notes">Notes (Optional)</label>
+                                <textarea id="notes" class="form-control" rows="3" placeholder="Additional meeting details..."></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn btn--primary btn--full-width">Save Meeting</button>
+                        </form>
+                    </div>
+                    
+                    <div class="cost-display">
+                        <div class="cost-card">
+                            <h3>Meeting Cost</h3>
+                            <div class="cost-amount" id="totalCost">$250.00</div>
+                            <div class="cost-breakdown">
+                                <div class="breakdown-item">
+                                    <span>Duration:</span>
+                                    <span id="durationDisplay">1h 0m</span>
+                                </div>
+                                <div class="breakdown-item">
+                                    <span>Participants:</span>
+                                    <span id="participantsDisplay">5</span>
+                                </div>
+                                <div class="breakdown-item">
+                                    <span>Rate:</span>
+                                    <span id="rateDisplay">$50/hour</span>
+                                </div>
+                                <div class="breakdown-item total">
+                                    <span>Cost per minute:</span>
+                                    <span id="costPerMinute">$4.17</span>
+                                </div>
+                            </div>
+                            <div class="efficiency-score" id="efficiencyScore">
+                                <h4>Meeting Efficiency Score</h4>
+                                <div class="score-meter">
+                                    <div class="score-bar" id="scoreBar"></div>
+                                    <span class="score-value" id="scoreValue">75%</span>
+                                </div>
+                                <p class="score-suggestion" id="scoreSuggestion">Good efficiency. Consider reducing duration by 15 minutes.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashboardView" class="view">
+        <div class="container">
+            <div class="dashboard-header">
+                <h1>Meeting Dashboard</h1>
+                <p>Track and analyze your meeting costs across all currencies</p>
+                <div class="dashboard-actions">
+                    <button class="btn btn--outline btn--sm" id="exportDashboard">Export Data</button>
+                    <button class="btn btn--primary btn--sm" data-view="calculator">New Meeting</button>
+                </div>
+            </div>
+            
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">💰</div>
+                    <h3>Total Cost (This Month)</h3>
+                    <div class="stat-value" id="totalMonthlyCost">$1,270</div>
+                    <div class="stat-change positive">+12% from last month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📅</div>
+                    <h3>Total Meetings</h3>
+                    <div class="stat-value" id="totalMeetings">3</div>
+                    <div class="stat-change negative">-8% from last month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚡</div>
+                    <h3>Average Efficiency</h3>
+                    <div class="stat-value" id="avgEfficiency">78%</div>
+                    <div class="stat-change positive">+5% from last month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⏱️</div>
+                    <h3>Time Invested</h3>
+                    <div class="stat-value" id="totalTime">3.5 hours</div>
+                    <div class="stat-change negative">-15% from last month</div>
+                </div>
+            </div>
+            
+            <div class="dashboard-content">
+                <div class="chart-section">
+                    <div class="card">
+                        <div class="card__header">
+                            <h3>Cost Trends</h3>
+                            <select id="chartPeriod" class="form-control" style="width: auto;">
+                                <option value="7">Last 7 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                                <option value="90">Last 90 days</option>
+                            </select>
+                        </div>
+                        <div class="card__body">
+                            <div class="chart-container" style="position: relative; height: 300px;">
+                                <canvas id="costChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="meetings-list">
+                    <div class="card">
+                        <div class="card__header">
+                            <h3>Recent Meetings</h3>
+                            <input type="text" class="form-control" placeholder="Search meetings..." id="meetingsSearch" style="width: 200px;">
+                        </div>
+                        <div class="card__body">
+                            <div id="meetingsList">
+                                <!-- Meetings will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics View -->
+    <div id="analyticsView" class="view">
+        <div class="container">
+            <div class="analytics-header">
+                <h1>Advanced Analytics</h1>
+                <p>Deep insights into your meeting patterns and costs</p>
+                <div class="analytics-actions">
+                    <button class="btn btn--outline" onclick="exportManager.openModal()">Export Analytics</button>
+                </div>
+            </div>
+            
+            <div class="analytics-grid">
+                <div class="card">
+                    <div class="card__header">
+                        <h3>Meeting Distribution</h3>
+                    </div>
+                    <div class="card__body">
+                        <div class="chart-container" style="position: relative; height: 250px;">
+                            <canvas id="distributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card__header">
+                        <h3>Cost by Department</h3>
+                    </div>
+                    <div class="card__body">
+                        <div class="chart-container" style="position: relative; height: 250px;">
+                            <canvas id="departmentChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card__header">
+                        <h3>Optimization Opportunities</h3>
+                    </div>
+                    <div class="card__body">
+                        <div class="optimization-list" id="optimizationList">
+                            <!-- Optimization suggestions will be populated -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card__header">
+                        <h3>Meeting ROI Analysis</h3>
+                    </div>
+                    <div class="card__body">
+                        <div class="roi-metrics">
+                            <div class="roi-item">
+                                <span class="roi-label">High Value Meetings</span>
+                                <span class="roi-value">23%</span>
+                            </div>
+                            <div class="roi-item">
+                                <span class="roi-label">Medium Value Meetings</span>
+                                <span class="roi-value">45%</span>
+                            </div>
+                            <div class="roi-item">
+                                <span class="roi-label">Low Value Meetings</span>
+                                <span class="roi-value">32%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing View -->
+    <div id="pricingView" class="view">
+        <div class="container">
+            <div class="pricing-header">
+                <h1>Choose Your Plan</h1>
+                <p>Select the perfect plan for your team's needs</p>
+                <div class="billing-toggle">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="billingToggle"> 
+                        <span>Annual billing (20% off)</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="pricing-header-card">
+                        <h3>Free</h3>
+                        <div class="price">$0<span>/month</span></div>
+                    </div>
+                    <div class="pricing-features">
+                        <ul>
+                            <li>Up to 5 meetings/month</li>
+                            <li>Basic cost calculation</li>
+                            <li>3 currencies</li>
+                            <li>Meeting history (30 days)</li>
+                            <li>CSV export</li>
+                            <li>Email support</li>
+                        </ul>
+                    </div>
+                    <button class="btn btn--outline btn--full-width" id="currentPlanBtn">Current Plan</button>
+                </div>
+                
+                <div class="pricing-card featured">
+                    <div class="popular-badge">Most Popular</div>
+                    <div class="pricing-header-card">
+                        <h3>Pro</h3>
+                        <div class="price" id="proPrice">$9<span>/month</span></div>
+                    </div>
+                    <div class="pricing-features">
+                        <ul>
+                            <li>Unlimited meetings</li>
+                            <li>All 20+ currencies</li>
+                            <li>Advanced analytics & insights</li>
+                            <li>Meeting efficiency scoring</li>
+                            <li>Custom hourly rates by role</li>
+                            <li>Meeting templates & presets</li>
+                            <li>All export formats (PDF, Excel, CSV)</li>
+                            <li>6+ months historical data</li>
+                            <li>Calendar integration</li>
+                            <li>API access</li>
+                            <li>Priority support</li>
+                        </ul>
+                    </div>
+                    <button class="btn btn--primary btn--full-width" onclick="pricing.selectPlan('pro')" data-view="payment" data-plan="pro">Upgrade to Pro</button>
+                </div>
+                
+                <div class="pricing-card">
+                    <div class="pricing-header-card">
+                        <h3>Enterprise</h3>
+                        <div class="price" id="enterprisePrice">$29<span>/month</span></div>
+                    </div>
+                    <div class="pricing-features">
+                        <ul>
+                            <li>Everything in Pro</li>
+                            <li>Multi-team support</li>
+                            <li>Advanced team analytics</li>
+                            <li>Department-wise cost breakdown</li>
+                            <li>Custom integrations & webhooks</li>
+                            <li>2FA & advanced security</li>
+                            <li>GDPR compliance tools</li>
+                            <li>Dedicated account manager</li>
+                            <li>24/7 phone support</li>
+                            <li>Custom training & onboarding</li>
+                        </ul>
+                    </div>
+                    <button class="btn btn--primary btn--full-width" onclick="pricing.selectPlan('enterprise')" data-view="payment" data-plan="enterprise">Choose Enterprise</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment View -->
+    <div id="paymentView" class="view">
+        <div class="container">
+            <div class="payment-container">
+                <div class="payment-header">
+                    <h1>Complete Your Subscription</h1>
+                    <p>Secure payment processing with industry-standard encryption</p>
+                </div>
+                
+                <div class="payment-layout">
+                    <div class="payment-form">
+                        <div class="plan-summary" id="planSummary">
+                            <!-- Plan details will be populated -->
+                        </div>
+                        
+                        <div class="payment-methods">
+                            <h3>Payment Method</h3>
+                            <div class="payment-options">
+                                <label class="payment-option">
+                                    <input type="radio" name="paymentMethod" value="card" checked>
+                                    <div class="payment-info">
+                                        <span class="payment-icon">💳</span>
+                                        <span>Credit/Debit Card</span>
+                                    </div>
+                                </label>
+                                <label class="payment-option">
+                                    <input type="radio" name="paymentMethod" value="google-pay">
+                                    <div class="payment-info">
+                                        <span class="payment-icon">📱</span>
+                                        <span>Google Pay</span>
+                                    </div>
+                                </label>
+                                <label class="payment-option">
+                                    <input type="radio" name="paymentMethod" value="apple-pay">
+                                    <div class="payment-info">
+                                        <span class="payment-icon">🍎</span>
+                                        <span>Apple Pay</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="card-form" id="cardForm">
+                            <div class="form-group">
+                                <label class="form-label">Card Number</label>
+                                <input type="text" class="form-control" placeholder="1234 5678 9012 3456" id="cardNumber">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Expiry Date</label>
+                                    <input type="text" class="form-control" placeholder="MM/YY" id="cardExpiry">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">CVC</label>
+                                    <input type="text" class="form-control" placeholder="123" id="cardCvc">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Cardholder Name</label>
+                                <input type="text" class="form-control" placeholder="John Doe" id="cardName">
+                            </div>
+                        </div>
+                        
+                        <div class="billing-address">
+                            <h3>Billing Address</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Country</label>
+                                    <select class="form-control" id="billingCountry">
+                                        <option>United States</option>
+                                        <option>United Kingdom</option>
+                                        <option>Canada</option>
+                                        <option>Australia</option>
+                                        <option>Germany</option>
+                                        <option>France</option>
+                                        <option>India</option>
+                                        <option>Japan</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">ZIP/Postal Code</label>
+                                    <input type="text" class="form-control" placeholder="12345" id="billingZip">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn--primary btn--full-width btn--lg" id="processPaymentBtn">
+                            <span class="btn-text">Complete Payment</span>
+                            <div class="btn-loader hidden">Processing...</div>
+                        </button>
+                        
+                        <div class="payment-security">
+                            <p>🔒 Secured by 256-bit SSL encryption</p>
+                        </div>
+                    </div>
+                    
+                    <div class="order-summary">
+                        <div class="card">
+                            <div class="card__header">
+                                <h3>Order Summary</h3>
+                            </div>
+                            <div class="card__body">
+                                <div id="orderDetails">
+                                    <!-- Order details will be populated -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="payment-guarantee">
+                            <h4>30-Day Money Back Guarantee</h4>
+                            <p>Not satisfied? Get a full refund within 30 days, no questions asked.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Billing View -->
+    <div id="billingView" class="view">
+        <div class="container">
+            <div class="billing-header">
+                <h1>Billing & Subscription</h1>
+                <p>Manage your subscription and payment methods</p>
+            </div>
+            
+            <div class="billing-content">
+                <div class="current-plan">
+                    <div class="card">
+                        <div class="card__header">
+                            <h3>Current Plan</h3>
+                            <div class="plan-status status--success">Active</div>
+                        </div>
+                        <div class="card__body">
+                            <div class="plan-info">
+                                <h4 id="currentPlanName">Pro Plan</h4>
+                                <p class="plan-price" id="currentPlanPrice">$9.00/month</p>
+                                <p class="plan-description">Next billing date: September 21, 2025</p>
+                            </div>
+                            <div class="plan-actions">
+                                <button class="btn btn--outline" id="changePlanBtn" data-view="pricing">Change Plan</button>
+                                <button class="btn btn--outline btn--danger" id="cancelPlanBtn">Cancel Subscription</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="payment-methods-section">
+                    <div class="card">
+                        <div class="card__header">
+                            <h3>Payment Methods</h3>
+                            <button class="btn btn--primary btn--sm" id="addPaymentMethodBtn">Add Payment Method</button>
+                        </div>
+                        <div class="card__body">
+                            <div id="paymentMethodsList">
+                                <!-- Payment methods will be populated -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="billing-history">
+                    <div class="card">
+                        <div class="card__header">
+                            <h3>Billing History</h3>
+                        </div>
+                        <div class="card__body">
+                            <div id="billingHistoryList">
+                                <!-- Billing history will be populated -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings View -->
+    <div id="settingsView" class="view">
+        <div class="container">
+            <div class="settings-header">
+                <h1>Settings</h1>
+                <p>Customize your MeetingCost Pro experience</p>
+            </div>
+            
+            <div class="settings-content">
+                <div class="settings-tabs">
+                    <button class="settings-tab active" data-tab="general">General</button>
+                    <button class="settings-tab" data-tab="currency">Currency</button>
+                    <button class="settings-tab" data-tab="notifications">Notifications</button>
+                    <button class="settings-tab" data-tab="integrations">Integrations</button>
+                </div>
+                
+                <div class="settings-panels">
+                    <div class="settings-panel active" id="generalPanel">
+                        <div class="card">
+                            <div class="card__header">
+                                <h3>Default Configuration</h3>
+                            </div>
+                            <div class="card__body">
+                                <form id="settingsForm">
+                                    <div class="form-group">
+                                        <label class="form-label" for="defaultRate">Default Hourly Rate</label>
+                                        <input type="number" id="defaultRate" class="form-control" value="50" min="0" step="0.01">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label class="form-label" for="defaultParticipants">Default Participants</label>
+                                        <input type="number" id="defaultParticipants" class="form-control" value="5" min="1">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label class="form-label" for="workingHours">Working Hours per Day</label>
+                                        <input type="number" id="workingHours" class="form-control" value="8" min="1" max="24">
+                                    </div>
+                                    
+                                    <button type="submit" class="btn btn--primary">Save Settings</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-panel" id="currencyPanel">
+                        <div class="card">
+                            <div class="card__header">
+                                <h3>Currency Preferences</h3>
+                            </div>
+                            <div class="card__body">
+                                <form id="currencyForm">
+                                    <div class="form-group">
+                                        <label class="form-label" for="primaryCurrency">Primary Currency</label>
+                                        <select id="primaryCurrency" class="form-control">
+                                            <!-- Currency options will be populated -->
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label class="form-label">Favorite Currencies</label>
+                                        <div class="currency-grid" id="currencyGrid">
+                                            <!-- Currency checkboxes will be populated -->
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn btn--primary">Save Currency Settings</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-panel" id="notificationsPanel">
+                        <div class="card">
+                            <div class="card__header">
+                                <h3>Notification Preferences</h3>
+                            </div>
+                            <div class="card__body">
+                                <form id="notificationsForm">
+                                    <div class="notification-group">
+                                        <h4>Email Notifications</h4>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="emailMeetingReminders" checked>
+                                            <span>Meeting cost reminders</span>
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="emailWeeklyReports" checked>
+                                            <span>Weekly cost reports</span>
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="emailBilling">
+                                            <span>Billing notifications</span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="notification-group">
+                                        <h4>In-App Notifications</h4>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="inAppOptimization" checked>
+                                            <span>Optimization suggestions</span>
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="inAppMilestones" checked>
+                                            <span>Cost milestones</span>
+                                        </label>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn btn--primary">Save Notification Settings</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-panel" id="integrationsPanel">
+                        <div class="card">
+                            <div class="card__header">
+                                <h3>Integrations</h3>
+                                <div class="pro-badge">PRO FEATURE</div>
+                            </div>
+                            <div class="card__body">
+                                <div class="integration-list">
+                                    <div class="integration-item">
+                                        <div class="integration-info">
+                                            <div class="integration-icon">📅</div>
+                                            <div>
+                                                <h4>Google Calendar</h4>
+                                                <p>Automatically calculate costs for calendar meetings</p>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn--outline btn--sm">Connect</button>
+                                    </div>
+                                    
+                                    <div class="integration-item">
+                                        <div class="integration-info">
+                                            <div class="integration-icon">📊</div>
+                                            <div>
+                                                <h4>Slack</h4>
+                                                <p>Get meeting cost reports in Slack</p>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn--outline btn--sm">Connect</button>
+                                    </div>
+                                    
+                                    <div class="integration-item">
+                                        <div class="integration-info">
+                                            <div class="integration-icon">🔗</div>
+                                            <div>
+                                                <h4>Zapier</h4>
+                                                <p>Connect with 3000+ apps</p>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn--outline btn--sm">Connect</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card__header">
+                                <h3>API Access</h3>
+                            </div>
+                            <div class="card__body">
+                                <div class="api-info">
+                                    <p>Access your meeting data programmatically</p>
+                                    <div class="api-key">
+                                        <label class="form-label">API Key</label>
+                                        <div class="api-key-display">
+                                            <code>sk_live_••••••••••••••••••••••••</code>
+                                            <button class="btn btn--outline btn--sm">Regenerate</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card__header">
+                        <h3>Export Data</h3>
+                    </div>
+                    <div class="card__body">
+                        <p>Export your meeting data for external analysis</p>
+                        <div class="export-options">
+                            <button class="btn btn--outline" onclick="exportManager.exportCSV()">Export as CSV</button>
+                            <button class="btn btn--outline" onclick="exportManager.exportPDF()">Export as PDF</button>
+                            <button class="btn btn--outline" onclick="exportManager.exportExcel()">Export as Excel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile View -->
+    <div id="profileView" class="view">
+        <div class="container">
+            <div class="profile-header">
+                <h1>Profile</h1>
+                <p>Manage your account information</p>
+            </div>
+            
+            <div class="profile-content">
+                <div class="card">
+                    <div class="card__header">
+                        <h3>Account Information</h3>
+                    </div>
+                    <div class="card__body">
+                        <form id="profileForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="profileFirstName">First Name</label>
+                                    <input type="text" id="profileFirstName" class="form-control" value="John">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="profileLastName">Last Name</label>
+                                    <input type="text" id="profileLastName" class="form-control" value="Doe">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="profileEmail">Email</label>
+                                <input type="email" id="profileEmail" class="form-control" value="john.doe@company.com" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="profileCompany">Company</label>
+                                <input type="text" id="profileCompany" class="form-control" value="Tech Corp">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="profileTimezone">Timezone</label>
+                                <select id="profileTimezone" class="form-control">
+                                    <option value="UTC-8">Pacific Time (UTC-8)</option>
+                                    <option value="UTC-5">Eastern Time (UTC-5)</option>
+                                    <option value="UTC">UTC</option>
+                                    <option value="UTC+1">Central European Time (UTC+1)</option>
+                                    <option value="UTC+5:30" selected>India Standard Time (UTC+5:30)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn--primary">Update Profile</button>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card__header">
+                        <h3>Change Password</h3>
+                    </div>
+                    <div class="card__body">
+                        <form id="passwordForm">
+                            <div class="form-group">
+                                <label class="form-label" for="currentPassword">Current Password</label>
+                                <input type="password" id="currentPassword" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="newPassword">New Password</label>
+                                <input type="password" id="newPassword" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="confirmPassword">Confirm New Password</label>
+                                <input type="password" id="confirmPassword" class="form-control">
+                            </div>
+                            <button type="submit" class="btn btn--primary">Change Password</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
